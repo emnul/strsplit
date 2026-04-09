@@ -5,21 +5,21 @@
 // lifetimes will be the same. The lifetime is shortened to the smallest of the two,
 // which is the scope of the until_char fn in our case
 #[derive(Debug)]
-pub struct StrSplit<'haystack, 'delimiter> {
+pub struct StrSplit<'haystack, D> {
     // We want remainder to be an Option because it can possibly be empty
     remainder: Option<&'haystack str>,
     // One solution to the lifetime issue above is to make delimiter a String, but this is
     // suboptimal because we now need to do an allocation everytime we create a StrSplit
     // Another downside is that this choice would make the library no longer compatible with all
     // devices that do not have an allocator like embedded systems
-    delimiter: &'delimiter str,
+    delimiter: D,
 }
 
-impl<'haystack, 'delimiter> StrSplit<'haystack, 'delimiter> {
+impl<'haystack, D> StrSplit<'haystack, D> {
     // split haystack by deimiter
     // By returning Self, we don't have to update all the methods in the future
     // if we decide to rename the type
-    pub fn new(haystack: &'haystack str, delimiter: &'delimiter str) -> Self {
+    pub fn new(haystack: &'haystack str, delimiter: D) -> Self {
         Self {
             remainder: Some(haystack),
             delimiter,
@@ -27,8 +27,15 @@ impl<'haystack, 'delimiter> StrSplit<'haystack, 'delimiter> {
     }
 }
 
+pub trait Delimiter {
+    fn find_next(&self, s: &str) -> Option<(usize, usize)>;
+}
+
 // for desugars to `while let Some(e) = T.next()`
-impl<'haystack> Iterator for StrSplit<'haystack, '_> {
+impl<'haystack, D> Iterator for StrSplit<'haystack, D>
+where
+    D: Delimiter,
+{
     type Item = &'haystack str;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -47,10 +54,10 @@ impl<'haystack> Iterator for StrSplit<'haystack, '_> {
         // as_mut required to get a mutable reference to value inside Option
         let remainder = self.remainder.as_mut()?;
         // Find next delimiter
-        if let Some(next_delim) = remainder.find(self.delimiter) {
-            let until_delimiter = &remainder[..next_delim];
+        if let Some((delim_start, delim_end)) = self.delimiter.find_next(remainder) {
+            let until_delimiter = &remainder[..delim_start];
             // set new remainder as everything after delim
-            *remainder = &remainder[(next_delim + self.delimiter.len())..];
+            *remainder = &remainder[delim_end..];
             // return everything until next delim
             Some(until_delimiter)
         // If there is no delimiter in remainder, take everything from
@@ -61,10 +68,25 @@ impl<'haystack> Iterator for StrSplit<'haystack, '_> {
     }
 }
 
-fn until_char(s: &str, c: char) -> &str {
+impl Delimiter for &str {
+    fn find_next(&self, s: &str) -> Option<(usize, usize)> {
+        s.find(self).map(|start| (start, start + self.len()))
+    }
+}
+
+// This trait lets us avoid an allocation via format! in until_char
+// We can pass the char directly to StrSplit because we have a Delimiter impl for char
+impl Delimiter for char {
+    fn find_next(&self, s: &str) -> Option<(usize, usize)> {
+        s.char_indices()
+            .find(|(_, c)| c == self)
+            .map(|(start, _)| (start, start + self.len_utf8()))
+    }
+}
+pub fn until_char(s: &str, c: char) -> &str {
     // Here the compiler tries to tie the lifetime of the returned string to
     // the temporary string we create with format!()
-    StrSplit::new(s, &format!("{}", c))
+    StrSplit::new(s, c)
         .next()
         .expect("StrSplit always gives at least one result")
 }
