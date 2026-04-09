@@ -35,7 +35,9 @@ impl<'a> Iterator for StrSplit<'a> {
         // Every let statement is a pattern match
         // ? is the try operator
         // Pattern match on what's inside the Some() in remainder
-        let ref mut remainder = self.remainder?;
+        // Normally the pattern below would cause a move but &str is Copy
+        // as_mut required to get a mutable reference to value inside Option
+        let remainder = self.remainder.as_mut()?;
         // Find next delimiter
         if let Some(next_delim) = remainder.find(self.delimiter) {
             let until_delimiter = &remainder[..next_delim];
