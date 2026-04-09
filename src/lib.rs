@@ -32,7 +32,7 @@ impl<'a> Iterator for StrSplit<'a> {
             None
         } else {
             let rest = self.remainder;
-            self.remainder = &[];
+            self.remainder = "";
             Some(rest)
         }
     }
