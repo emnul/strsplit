@@ -1,17 +1,25 @@
 //!
 // #![warn(missing_debug_implementations, missing_docs)]
 
+// until_char will not work when we tell Rust to expect that the remainder and delimiter
+// lifetimes will be the same. The lifetime is shortened to the smallest of the two,
+// which is the scope of the until_char fn in our case
 #[derive(Debug)]
-pub struct StrSplit<'a> {
-    remainder: Option<&'a str>,
-    delimiter: &'a str,
+pub struct StrSplit<'haystack, 'delimiter> {
+    // We want remainder to be an Option because it can possibly be empty
+    remainder: Option<&'haystack str>,
+    // One solution to the lifetime issue above is to make delimiter a String, but this is
+    // suboptimal because we now need to do an allocation everytime we create a StrSplit
+    // Another downside is that this choice would make the library no longer compatible with all
+    // devices that do not have an allocator like embedded systems
+    delimiter: &'delimiter str,
 }
 
-impl<'a> StrSplit<'a> {
+impl<'haystack, 'delimiter> StrSplit<'haystack, 'delimiter> {
     // split haystack by deimiter
     // By returning Self, we don't have to update all the methods in the future
     // if we decide to rename the type
-    pub fn new(haystack: &'a str, delimiter: &'a str) -> Self {
+    pub fn new(haystack: &'haystack str, delimiter: &'delimiter str) -> Self {
         Self {
             remainder: Some(haystack),
             delimiter,
@@ -20,8 +28,8 @@ impl<'a> StrSplit<'a> {
 }
 
 // for desugars to `while let Some(e) = T.next()`
-impl<'a> Iterator for StrSplit<'a> {
-    type Item = &'a str;
+impl<'haystack, 'delimiter> Iterator for StrSplit<'haystack, 'delimiter> {
+    type Item = &'haystack str;
 
     fn next(&mut self) -> Option<Self::Item> {
         // If we have remainder
@@ -51,6 +59,19 @@ impl<'a> Iterator for StrSplit<'a> {
             self.remainder.take()
         }
     }
+}
+
+fn until_char(s: &str, c: char) -> &str {
+    // Here the compiler tries to tie the lifetime of the returned string to
+    // the temporary string we create with format!()
+    StrSplit::new(s, &format!("{}", c))
+        .next()
+        .expect("StrSplit always gives at least one result")
+}
+
+#[test]
+fn until_char_test() {
+    assert_eq!(until_char("hello world", 'o'), "hell");
 }
 
 #[test]
