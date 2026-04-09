@@ -25,6 +25,9 @@ impl<'a> Iterator for StrSplit<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         // If we have remainder
+        // Without ref mut we would move value in remainder out
+        // ref mut allows us to get a mutable ref to value in remainder instead of moving value
+        // if it is Some
         if let Some(ref mut remainder) = self.remainder {
             // Find next delimiter
             if let Some(next_delim) = remainder.find(self.delimiter) {
