@@ -3,7 +3,7 @@
 
 #[derive(Debug)]
 pub struct StrSplit<'a> {
-    remainder: &'a str,
+    remainder: Option<&'a str>,
     delimiter: &'a str,
 }
 
@@ -13,7 +13,7 @@ impl<'a> StrSplit<'a> {
     // if we decide to rename the type
     pub fn new(haystack: &'a str, delimiter: &'a str) -> Self {
         Self {
-            remainder: haystack,
+            remainder: Some(haystack),
             delimiter,
         }
     }
@@ -24,20 +24,23 @@ impl<'a> Iterator for StrSplit<'a> {
     type Item = &'a str;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if let Some(next_delim) = self.remainder.find(self.delimiter) {
-            let until_delimiter = &self.remainder[..next_delim];
-            self.remainder = &self.remainder[(next_delim + self.delimiter.len())..];
-            Some(until_delimiter)
-        } else if self.remainder.is_empty() {
-            // TODO:: Bug here
-            None
+        // If we have remainder
+        if let Some(ref mut remainder) = self.remainder {
+            // Find next delimiter
+            if let Some(next_delim) = remainder.find(self.delimiter) {
+                let until_delimiter = &remainder[..next_delim];
+                // set new remainder as everything after delim
+                *remainder = &remainder[(next_delim + self.delimiter.len())..];
+                // return everything until next delim
+                Some(until_delimiter)
+            // If there is no delimiter in remainder, take everything from
+            // remainder and replace it with a None
+            } else {
+                self.remainder.take()
+            }
+        // No remainder left so terminate Iterator with None
         } else {
-            let rest = self.remainder;
-            self.remainder = "";
-            // &'a str        &'static str
-            // example of covariance
-            // static is a subtype of 'a because a 'static lives at least as long as any 'a
-            Some(rest)
+            None
         }
     }
 }
@@ -47,4 +50,15 @@ fn it_works() {
     let haystack = "a b c d e";
     let letters = StrSplit::new(haystack, " ");
     assert!(letters.eq(vec!["a", "b", "c", "d", "e"].into_iter()));
+
+    // Another way of testing haystack
+}
+
+// Need to handle the case where a delimiter tails the string
+// Last element should be the empty string in this case
+#[test]
+fn tail() {
+    let haystack = "a b c d ";
+    let letters: Vec<_> = StrSplit::new(haystack, " ").collect();
+    assert_eq!(letters, vec!["a", "b", "c", "d", ""]);
 }
