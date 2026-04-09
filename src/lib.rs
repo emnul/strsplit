@@ -6,11 +6,11 @@ pub struct StrSplit<'a> {
     delimiter: &'a str,
 }
 
-impl StrSplit<'_> {
+impl<'a> StrSplit<'a> {
     // split haystack by deimiter
     // By returning Self, we don't have to update all the methods in the future
     // if we decide to rename the type
-    pub fn new(haystack: &str, delimiter: &str) -> Self {
+    pub fn new(haystack: &'a str, delimiter: &'a str) -> Self {
         Self {
             remainder: haystack,
             delimiter,
