@@ -27,23 +27,26 @@ impl<'a> Iterator for StrSplit<'a> {
         // If we have remainder
         // Without ref mut we would move value in remainder out
         // ref mut allows us to get a mutable ref to value in remainder instead of moving value
-        // if it is Some
-        if let Some(ref mut remainder) = self.remainder {
-            // Find next delimiter
-            if let Some(next_delim) = remainder.find(self.delimiter) {
-                let until_delimiter = &remainder[..next_delim];
-                // set new remainder as everything after delim
-                *remainder = &remainder[(next_delim + self.delimiter.len())..];
-                // return everything until next delim
-                Some(until_delimiter)
-            // If there is no delimiter in remainder, take everything from
-            // remainder and replace it with a None
-            } else {
-                self.remainder.take()
-            }
-        // No remainder left so terminate Iterator with None
+        // if it is Some.
+        // "Give me a reference to the matched value"
+        // if let Some(&mut remainder) does not work because the compiler would try to match
+        // an Option<&mut T> instead of an Option<&T>
+        //
+        // Every let statement is a pattern match
+        // ? is the try operator
+        // Pattern match on what's inside the Some() in remainder
+        let ref mut remainder = self.remainder?;
+        // Find next delimiter
+        if let Some(next_delim) = remainder.find(self.delimiter) {
+            let until_delimiter = &remainder[..next_delim];
+            // set new remainder as everything after delim
+            *remainder = &remainder[(next_delim + self.delimiter.len())..];
+            // return everything until next delim
+            Some(until_delimiter)
+        // If there is no delimiter in remainder, take everything from
+        // remainder and replace it with a None
         } else {
-            None
+            self.remainder.take()
         }
     }
 }
