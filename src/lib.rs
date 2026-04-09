@@ -1,5 +1,4 @@
-//!
-// #![warn(missing_debug_implementations, missing_docs)]
+//! This is a re-implementation of the split method on str in the Rust std library
 
 // until_char will not work when we tell Rust to expect that the remainder and delimiter
 // lifetimes will be the same. The lifetime is shortened to the smallest of the two,
